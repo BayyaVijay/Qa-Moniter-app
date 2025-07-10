@@ -25,6 +25,7 @@ import {
   User,
   ChevronDown,
   Tags,
+  Key,
 } from 'lucide-react';
 
 const navigation = [
@@ -136,6 +137,12 @@ export default function Sidebar() {
             <DropdownMenuItem>
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/change-password" className="flex items-center w-full">
+                <Key className="mr-2 h-4 w-4" />
+                <span>Change Password</span>
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout} className="text-red-600">

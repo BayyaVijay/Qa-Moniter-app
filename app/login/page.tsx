@@ -25,6 +25,9 @@ export default function LoginPage() {
   const [isButtonLoading, setIsButtonLoading] = useState(false);
 
   const router = useRouter();
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const successMessage = searchParams.get('message');
+  
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -175,6 +178,14 @@ export default function LoginPage() {
               </p>
             </CardHeader>
             <CardContent className="px-8 pb-8">
+              {successMessage && (
+                <Alert className="mb-6 border-green-200 bg-green-50">
+                  <AlertDescription className="text-green-800">
+                    {successMessage}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               <form onSubmit={handleSubmit} className="space-y-6">
                 {(error || formError) && (
                   <Alert

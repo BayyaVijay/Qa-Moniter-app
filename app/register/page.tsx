@@ -505,6 +505,15 @@ export default function RegisterPage() {
                     Sign in here
                   </Link>
                 </p>
+                <p className="text-sm text-gray-600 mt-2">
+                  Need to change your password?{" "}
+                  <Link
+                    href="/change-password"
+                    className="text-indigo-600 hover:text-indigo-800 font-semibold transition-colors"
+                  >
+                    Change Password
+                  </Link>
+                </p>
               </div>
             </CardContent>
           </Card>
