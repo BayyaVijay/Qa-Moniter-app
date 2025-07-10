@@ -141,7 +141,7 @@ export default function Sidebar() {
             <DropdownMenuItem asChild>
               <Link href="/change-password" className="flex items-center w-full">
                 <Key className="mr-2 h-4 w-4" />
-                <span>Change Password</span>
+                <span>Update Password</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />

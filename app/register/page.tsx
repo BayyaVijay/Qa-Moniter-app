@@ -25,6 +25,7 @@ export default function RegisterPage() {
   const { register, loading, error, isAuthenticated, clearError } = useAuth();
   const [isButtonLoading, setIsButtonLoading] = useState(false);
   const router = useRouter();
+  
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -166,13 +167,16 @@ export default function RegisterPage() {
 
     try {
       setIsButtonLoading(true);
-      await register(
-        formData.name,
-        formData.email,
-        formData.password,
-        formData.role
-      );
-      router.push("/dashboard");
+      
+      // Store registration data in sessionStorage and redirect to change password
+      sessionStorage.setItem('registrationData', JSON.stringify({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        role: formData.role
+      }));
+      
+      router.push("/change-password");
     } catch (error) {
       // Handle server errors
       setFieldErrors({
@@ -503,15 +507,6 @@ export default function RegisterPage() {
                     className="text-indigo-600 hover:text-indigo-800 font-semibold transition-colors"
                   >
                     Sign in here
-                  </Link>
-                </p>
-                <p className="text-sm text-gray-600 mt-2">
-                  Need to change your password?{" "}
-                  <Link
-                    href="/change-password"
-                    className="text-indigo-600 hover:text-indigo-800 font-semibold transition-colors"
-                  >
-                    Change Password
                   </Link>
                 </p>
               </div>

@@ -16,6 +16,7 @@ import {
   CheckCircle,
   ArrowLeft,
   Key,
+  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 import axios from "axios";
@@ -24,27 +25,39 @@ import axios from "axios";
 interface FieldErrors {
   oldPassword?: string;
   newPassword?: string;
-  confirmPassword?: string;
   general?: string;
 }
 
+interface RegistrationData {
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+}
+
 export default function ChangePasswordPage() {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, register } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [isRegistrationFlow, setIsRegistrationFlow] = useState(false);
+  const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
+  
   const [formData, setFormData] = useState({
     oldPassword: "",
     newPassword: "",
-    confirmPassword: "",
   });
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    // Check if this is coming from registration flow
+    const storedRegistrationData = sessionStorage.getItem('registrationData');
+    if (storedRegistrationData) {
+      setIsRegistrationFlow(true);
+      setRegistrationData(JSON.parse(storedRegistrationData));
+    } else if (!isAuthenticated) {
       router.push("/login");
     }
   }, [isAuthenticated, router]);
@@ -59,7 +72,7 @@ export default function ChangePasswordPage() {
     switch (fieldName) {
       case "oldPassword":
         if (!value) {
-          return "Current password is required";
+          return isRegistrationFlow ? "Default password is required" : "Current password is required";
         }
         return null;
 
@@ -71,16 +84,7 @@ export default function ChangePasswordPage() {
           return "New password must be at least 6 characters long";
         }
         if (value === formData.oldPassword) {
-          return "New password must be different from current password";
-        }
-        return null;
-
-      case "confirmPassword":
-        if (!value) {
-          return "Please confirm your new password";
-        }
-        if (value !== formData.newPassword) {
-          return "Passwords do not match";
+          return "New password must be different from the default password";
         }
         return null;
 
@@ -140,10 +144,6 @@ export default function ChangePasswordPage() {
     const newPasswordError = validateField("newPassword", formData.newPassword);
     if (newPasswordError) errors.newPassword = newPasswordError;
 
-    // Validate confirm password
-    const confirmPasswordError = validateField("confirmPassword", formData.confirmPassword);
-    if (confirmPasswordError) errors.confirmPassword = confirmPasswordError;
-
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -160,33 +160,58 @@ export default function ChangePasswordPage() {
       setLoading(true);
       setFieldErrors({});
 
-      const response = await axios.put("/api/auth/change-password", {
-        oldPassword: formData.oldPassword,
-        newPassword: formData.newPassword,
-      });
+      if (isRegistrationFlow && registrationData) {
+        // Registration flow: verify old password matches registration password, then create account with new password
+        if (formData.oldPassword !== registrationData.password) {
+          setFieldErrors({ oldPassword: "Default password is incorrect" });
+          return;
+        }
 
-      if (response.data.success) {
+        // Create account with new password
+        await register(
+          registrationData.name,
+          registrationData.email,
+          formData.newPassword,
+          registrationData.role
+        );
+
+        // Clear registration data
+        sessionStorage.removeItem('registrationData');
+        
         setSuccess(true);
-        setFormData({
-          oldPassword: "",
-          newPassword: "",
-          confirmPassword: "",
+        
+        // Redirect to login after success
+        setTimeout(() => {
+          router.push("/login?message=Account created successfully! Please login with your new password.");
+        }, 2000);
+        
+      } else {
+        // Normal password change flow for existing users
+        const response = await axios.put("/api/auth/change-password", {
+          oldPassword: formData.oldPassword,
+          newPassword: formData.newPassword,
         });
 
-        // Show success message for 2 seconds, then logout and redirect
-        setTimeout(() => {
-          logout();
-          router.push("/login?message=Password changed successfully. Please login with your new password.");
-        }, 2000);
+        if (response.data.success) {
+          setSuccess(true);
+          setFormData({
+            oldPassword: "",
+            newPassword: "",
+          });
+
+          // Show success message for 2 seconds, then logout and redirect
+          setTimeout(() => {
+            logout();
+            router.push("/login?message=Password changed successfully. Please login with your new password.");
+          }, 2000);
+        }
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || "Failed to change password";
+      const errorMessage = error.response?.data?.error || "Failed to process request";
       
       // Handle specific error types
-      if (errorMessage.includes("Current password is incorrect")) {
+      if (errorMessage.includes("Current password is incorrect") || errorMessage.includes("password")) {
         setFieldErrors({ oldPassword: errorMessage });
-      } else if (errorMessage.includes("New password")) {
-        setFieldErrors({ newPassword: errorMessage });
       } else {
         setFieldErrors({ general: errorMessage });
       }
@@ -195,9 +220,18 @@ export default function ChangePasswordPage() {
     }
   };
 
-  if (!isAuthenticated) {
+  // Don't render anything while checking authentication
+  if (!isRegistrationFlow && !isAuthenticated) {
     return null;
   }
+
+  const pageTitle = isRegistrationFlow ? "Set Your Password" : "Change Password";
+  const pageDescription = isRegistrationFlow 
+    ? `Complete your account setup for ${registrationData?.name}` 
+    : `Update your account password for ${user?.name}`;
+  const oldPasswordLabel = isRegistrationFlow ? "Default Password" : "Current Password";
+  const oldPasswordPlaceholder = isRegistrationFlow ? "Enter the default password" : "Enter your current password";
+  const submitButtonText = isRegistrationFlow ? "Create Account" : "Change Password";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-6 py-12">
@@ -205,15 +239,19 @@ export default function ChangePasswordPage() {
         <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader className="text-center pb-6 pt-8">
             <div className="flex items-center justify-center space-x-2 mb-6">
-              <div className="bg-blue-100 rounded-full p-3">
-                <Key className="h-8 w-8 text-blue-600" />
+              <div className={`rounded-full p-3 ${isRegistrationFlow ? 'bg-green-100' : 'bg-blue-100'}`}>
+                {isRegistrationFlow ? (
+                  <UserPlus className="h-8 w-8 text-green-600" />
+                ) : (
+                  <Key className="h-8 w-8 text-blue-600" />
+                )}
               </div>
             </div>
             <CardTitle className="text-2xl font-bold text-gray-900">
-              Change Password
+              {pageTitle}
             </CardTitle>
             <p className="text-gray-600 mt-2">
-              Update your account password for {user?.name}
+              {pageDescription}
             </p>
           </CardHeader>
           <CardContent className="px-8 pb-8">
@@ -221,7 +259,10 @@ export default function ChangePasswordPage() {
               <Alert className="mb-6 border-green-200 bg-green-50">
                 <CheckCircle className="h-4 w-4 text-green-600" />
                 <AlertDescription className="text-green-800">
-                  Password changed successfully! Redirecting to login...
+                  {isRegistrationFlow 
+                    ? "Account created successfully! Redirecting to login..." 
+                    : "Password changed successfully! Redirecting to login..."
+                  }
                 </AlertDescription>
               </Alert>
             )}
@@ -236,13 +277,13 @@ export default function ChangePasswordPage() {
                 </Alert>
               )}
 
-              {/* Current Password Field */}
+              {/* Old/Default Password Field */}
               <div className="space-y-2">
                 <Label
                   htmlFor="oldPassword"
                   className="text-sm font-semibold text-gray-700"
                 >
-                  Current Password
+                  {oldPasswordLabel}
                 </Label>
                 <div className="relative">
                   <Input
@@ -252,7 +293,7 @@ export default function ChangePasswordPage() {
                     value={formData.oldPassword}
                     onChange={handleInputChange}
                     onBlur={() => handleFieldBlur("oldPassword", formData.oldPassword)}
-                    placeholder="Enter your current password"
+                    placeholder={oldPasswordPlaceholder}
                     className={`h-11 pr-12 transition-colors ${
                       fieldErrors.oldPassword
                         ? "border-red-300 focus:border-red-500 focus:ring-red-500"
@@ -322,56 +363,13 @@ export default function ChangePasswordPage() {
                 )}
               </div>
 
-              {/* Confirm New Password Field */}
-              <div className="space-y-2">
-                <Label
-                  htmlFor="confirmPassword"
-                  className="text-sm font-semibold text-gray-700"
-                >
-                  Confirm New Password
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    onBlur={() => handleFieldBlur("confirmPassword", formData.confirmPassword)}
-                    placeholder="Confirm your new password"
-                    className={`h-11 pr-12 transition-colors ${
-                      fieldErrors.confirmPassword
-                        ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                        : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                    }`}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
-                {fieldErrors.confirmPassword && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {fieldErrors.confirmPassword}
-                  </p>
-                )}
-              </div>
-
               {/* Password Requirements */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-blue-800 mb-2 flex items-center">
+              <div className={`border rounded-lg p-4 ${isRegistrationFlow ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+                <h4 className={`text-sm font-semibold mb-2 flex items-center ${isRegistrationFlow ? 'text-green-800' : 'text-blue-800'}`}>
                   <Shield className="h-4 w-4 mr-2" />
                   Password Requirements
                 </h4>
-                <ul className="text-xs text-blue-700 space-y-1">
+                <ul className={`text-xs space-y-1 ${isRegistrationFlow ? 'text-green-700' : 'text-blue-700'}`}>
                   <li className="flex items-center">
                     <CheckCircle className={`h-3 w-3 mr-2 ${
                       formData.newPassword.length >= 6 ? "text-green-600" : "text-gray-400"
@@ -382,13 +380,7 @@ export default function ChangePasswordPage() {
                     <CheckCircle className={`h-3 w-3 mr-2 ${
                       formData.newPassword && formData.newPassword !== formData.oldPassword ? "text-green-600" : "text-gray-400"
                     }`} />
-                    Different from current password
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className={`h-3 w-3 mr-2 ${
-                      formData.newPassword && formData.confirmPassword && formData.newPassword === formData.confirmPassword ? "text-green-600" : "text-gray-400"
-                    }`} />
-                    Passwords match
+                    Different from {isRegistrationFlow ? 'default' : 'current'} password
                   </li>
                 </ul>
               </div>
@@ -396,7 +388,11 @@ export default function ChangePasswordPage() {
               <Button
                 type="submit"
                 disabled={loading || success}
-                className="w-full h-11 flex justify-center items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+                className={`w-full h-11 flex justify-center items-center gap-2 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 transform hover:scale-[1.02] ${
+                  isRegistrationFlow 
+                    ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800'
+                    : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
+                }`}
               >
                 {loading ? (
                   <>
@@ -420,17 +416,21 @@ export default function ChangePasswordPage() {
                         d="M4 12a8 8 0 018-8v8z"
                       />
                     </svg>
-                    <span>Changing Password...</span>
+                    <span>{isRegistrationFlow ? 'Creating Account...' : 'Changing Password...'}</span>
                   </>
                 ) : success ? (
                   <>
                     <CheckCircle className="h-5 w-5" />
-                    <span>Password Changed!</span>
+                    <span>{isRegistrationFlow ? 'Account Created!' : 'Password Changed!'}</span>
                   </>
                 ) : (
                   <>
-                    <Lock className="h-5 w-5" />
-                    <span>Change Password</span>
+                    {isRegistrationFlow ? (
+                      <UserPlus className="h-5 w-5" />
+                    ) : (
+                      <Lock className="h-5 w-5" />
+                    )}
+                    <span>{submitButtonText}</span>
                   </>
                 )}
               </Button>
@@ -438,11 +438,11 @@ export default function ChangePasswordPage() {
 
             <div className="mt-6 text-center">
               <Link
-                href="/dashboard"
+                href={isRegistrationFlow ? "/register" : "/dashboard"}
                 className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-semibold transition-colors"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
+                {isRegistrationFlow ? 'Back to Registration' : 'Back to Dashboard'}
               </Link>
             </div>
           </CardContent>
