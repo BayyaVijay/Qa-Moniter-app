@@ -36,7 +36,7 @@ interface RegistrationData {
 }
 
 export default function ChangePasswordPage() {
-  const { user, logout, isAuthenticated, register } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [isRegistrationFlow, setIsRegistrationFlow] = useState(false);
@@ -72,7 +72,7 @@ export default function ChangePasswordPage() {
     switch (fieldName) {
       case "oldPassword":
         if (!value) {
-          return isRegistrationFlow ? "Default password is required" : "Current password is required";
+          return isRegistrationFlow ? "Old password is required" : "Current password is required";
         }
         return null;
 
@@ -84,7 +84,7 @@ export default function ChangePasswordPage() {
           return "New password must be at least 6 characters long";
         }
         if (value === formData.oldPassword) {
-          return "New password must be different from the default password";
+          return "New password must be different from the old password";
         }
         return null;
 
@@ -163,27 +163,30 @@ export default function ChangePasswordPage() {
       if (isRegistrationFlow && registrationData) {
         // Registration flow: verify old password matches registration password, then create account with new password
         if (formData.oldPassword !== registrationData.password) {
-          setFieldErrors({ oldPassword: "Default password is incorrect" });
+          setFieldErrors({ oldPassword: "Old password is incorrect" });
           return;
         }
 
-        // Create account with new password
-        await register(
-          registrationData.name,
-          registrationData.email,
-          formData.newPassword,
-          registrationData.role
-        );
+        // Create account with new password using the new API endpoint
+        const response = await axios.post("/api/auth/create-account", {
+          name: registrationData.name,
+          email: registrationData.email,
+          oldPassword: formData.oldPassword,
+          newPassword: formData.newPassword,
+          role: registrationData.role,
+        });
 
-        // Clear registration data
-        sessionStorage.removeItem('registrationData');
-        
-        setSuccess(true);
-        
-        // Redirect to login after success
-        setTimeout(() => {
-          router.push("/login?message=Account created successfully! Please login with your new password.");
-        }, 2000);
+        if (response.data.success) {
+          // Clear registration data
+          sessionStorage.removeItem('registrationData');
+          
+          setSuccess(true);
+          
+          // Redirect to login after success
+          setTimeout(() => {
+            router.push("/login?message=Account created successfully! Please login with your new password.");
+          }, 2000);
+        }
         
       } else {
         // Normal password change flow for existing users
@@ -210,8 +213,10 @@ export default function ChangePasswordPage() {
       const errorMessage = error.response?.data?.error || "Failed to process request";
       
       // Handle specific error types
-      if (errorMessage.includes("Current password is incorrect") || errorMessage.includes("password")) {
+      if (errorMessage.includes("password") && errorMessage.includes("incorrect")) {
         setFieldErrors({ oldPassword: errorMessage });
+      } else if (errorMessage.includes("password")) {
+        setFieldErrors({ newPassword: errorMessage });
       } else {
         setFieldErrors({ general: errorMessage });
       }
@@ -229,8 +234,8 @@ export default function ChangePasswordPage() {
   const pageDescription = isRegistrationFlow 
     ? `Complete your account setup for ${registrationData?.name}` 
     : `Update your account password for ${user?.name}`;
-  const oldPasswordLabel = isRegistrationFlow ? "Default Password" : "Current Password";
-  const oldPasswordPlaceholder = isRegistrationFlow ? "Enter the default password" : "Enter your current password";
+  const oldPasswordLabel = isRegistrationFlow ? "Old Password" : "Current Password";
+  const oldPasswordPlaceholder = isRegistrationFlow ? "Enter the old password" : "Enter your current password";
   const submitButtonText = isRegistrationFlow ? "Create Account" : "Change Password";
 
   return (
@@ -277,7 +282,7 @@ export default function ChangePasswordPage() {
                 </Alert>
               )}
 
-              {/* Old/Default Password Field */}
+              {/* Old/Current Password Field */}
               <div className="space-y-2">
                 <Label
                   htmlFor="oldPassword"
@@ -380,7 +385,7 @@ export default function ChangePasswordPage() {
                     <CheckCircle className={`h-3 w-3 mr-2 ${
                       formData.newPassword && formData.newPassword !== formData.oldPassword ? "text-green-600" : "text-gray-400"
                     }`} />
-                    Different from {isRegistrationFlow ? 'default' : 'current'} password
+                    Different from {isRegistrationFlow ? 'old' : 'current'} password
                   </li>
                 </ul>
               </div>
