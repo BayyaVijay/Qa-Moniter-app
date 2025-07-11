@@ -43,15 +43,13 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     // Get reset token from session storage
     const token = sessionStorage.getItem('resetToken');
-    console.log('Checking for reset token:', token);
     
     if (!token) {
-      console.log('No reset token found, redirecting to forgot password');
+      // Redirect to forgot password if no token found
       router.push('/forgot-password');
       return;
     }
     
-    console.log('Reset token found, setting up form');
     setResetToken(token);
   }, [router]);
 

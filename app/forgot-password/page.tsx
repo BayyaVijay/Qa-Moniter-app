@@ -58,18 +58,8 @@ export default function ForgotPasswordPage() {
     }
     
     // Store the reset token and redirect to reset password page
-    try {
-      sessionStorage.setItem('resetToken', resetToken);
-      console.log('Token stored successfully:', resetToken);
-      
-      // Use a small delay to ensure sessionStorage is set
-      setTimeout(() => {
-        router.push('/reset-password');
-      }, 100);
-    } catch (err) {
-      console.error('Error storing token:', err);
-      setError("Unable to proceed. Please try again.");
-    }
+    sessionStorage.setItem('resetToken', resetToken);
+    router.push('/reset-password');
   };
 
   return (
@@ -112,6 +102,7 @@ export default function ForgotPasswordPage() {
                     Click the button below to proceed with resetting your password.
                   </p>
                   <Button
+                    type="button"
                     onClick={handleProceedToReset}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                     disabled={!resetToken}
