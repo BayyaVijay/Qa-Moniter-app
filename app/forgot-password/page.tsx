@@ -52,9 +52,24 @@ export default function ForgotPasswordPage() {
   };
 
   const handleProceedToReset = () => {
+    if (!resetToken) {
+      setError("No reset token available. Please try again.");
+      return;
+    }
+    
     // Store the reset token and redirect to reset password page
-    sessionStorage.setItem('resetToken', resetToken);
-    router.push('/reset-password');
+    try {
+      sessionStorage.setItem('resetToken', resetToken);
+      console.log('Token stored successfully:', resetToken);
+      
+      // Use a small delay to ensure sessionStorage is set
+      setTimeout(() => {
+        router.push('/reset-password');
+      }, 100);
+    } catch (err) {
+      console.error('Error storing token:', err);
+      setError("Unable to proceed. Please try again.");
+    }
   };
 
   return (
@@ -72,7 +87,7 @@ export default function ForgotPasswordPage() {
             </CardTitle>
             <p className="text-gray-600 mt-2">
               {success 
-                ? "Check your email for reset instructions" 
+                ? "Ready to reset your password" 
                 : "Enter your email to receive password reset instructions"
               }
             </p>
@@ -83,26 +98,25 @@ export default function ForgotPasswordPage() {
                 <Alert className="border-green-200 bg-green-50">
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
-                    Password reset instructions have been sent to your email address.
-                    Please check your inbox and follow the instructions to reset your password.
+                    Password reset request processed successfully. You can now proceed to reset your password.
                   </AlertDescription>
                 </Alert>
 
                 {/* For demo purposes, show the reset button */}
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex items-center space-x-2 mb-2">
-                    <AlertCircle className="h-4 w-4 text-yellow-600" />
-                    <span className="text-sm font-medium text-yellow-800">Demo Mode</span>
+                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">Next Step</span>
                   </div>
-                  <p className="text-xs text-yellow-700 mb-3">
-                    In a real application, you would receive an email with a reset link. 
-                    For this demo, click the button below to proceed.
+                  <p className="text-xs text-blue-700 mb-3">
+                    Click the button below to proceed with resetting your password.
                   </p>
                   <Button
                     onClick={handleProceedToReset}
-                    className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    disabled={!resetToken}
                   >
-                    Proceed to Reset Password
+                    Reset My Password
                   </Button>
                 </div>
 
