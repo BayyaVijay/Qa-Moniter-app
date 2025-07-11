@@ -61,6 +61,8 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, role?: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<{ resetToken: string; email: string; name: string }>;
+  resetPassword: (resetToken: string, newPassword: string, confirmPassword: string) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
   clearError: () => void;
@@ -143,6 +145,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const forgotPassword = async (email: string) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'SET_ERROR', payload: null });
+
+      const response = await axios.post('/api/auth/forgot-password', { email });
+
+      if (response.data.success) {
+        dispatch({ type: 'SET_LOADING', payload: false });
+        return {
+          resetToken: response.data.resetToken,
+          email: response.data.data.email,
+          name: response.data.data.name,
+        };
+      } else {
+        throw new Error(response.data.error || 'Failed to send reset instructions');
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to send reset instructions';
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      throw error;
+    }
+  };
+
+  const resetPassword = async (resetToken: string, newPassword: string, confirmPassword: string) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'SET_ERROR', payload: null });
+
+      const response = await axios.post('/api/auth/reset-password', {
+        resetToken,
+        newPassword,
+        confirmPassword,
+      });
+
+      if (response.data.success) {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      } else {
+        throw new Error(response.data.error || 'Failed to reset password');
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to reset password';
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      throw error;
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('auth-token');
     delete axios.defaults.headers.common['Authorization'];
@@ -177,6 +226,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ...state,
     login,
     register,
+    forgotPassword,
+    resetPassword,
     logout,
     checkAuth,
     clearError,

@@ -294,6 +294,15 @@ export default function LoginPage() {
                     Create Account
                   </Link>
                 </p>
+                <p className="text-sm text-gray-600 mt-2">
+                  Forgot your password?{" "}
+                  <Link
+                    href="/forgot-password"
+                    className="text-blue-600 hover:text-blue-800 font-semibold transition-colors"
+                  >
+                    Reset Password
+                  </Link>
+                </p>
               </div>
 
               <div className="mt-8 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200">
